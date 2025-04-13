@@ -5,6 +5,69 @@ info:
   description: API endpoints for managing dishes
 
 paths:
+  paths:
+  /multimedia/upload:
+    post:  # <<--- Este 'post' debe estar indentado correctamente
+      summary: Upload an image
+      description: Uploads a single image to Cloudinary. Accepts only .jpg, .jpeg, .png, and .webp formats.
+      tags:
+        - Multimedia
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: Image file to upload (.jpg, .jpeg, .png, .webp)
+      responses:
+        '201':
+          description: Image uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Image uploaded successfully
+                  data:
+                    type: string
+                    example: https://res.cloudinary.com/your_cloud/image/upload/v1234567890/images/sample.jpg
+        '400':
+          description: Invalid request or unsupported file type
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: Invalid image extension
+        '500':
+          description: Internal server error while uploading image
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: Error uploading image
+
+
   /dish/only/{id}:
     get:
       summary: Get a dish by ID
