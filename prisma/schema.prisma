@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  CUSTOMER
+}
+
+enum OrderStatus {
+  PENDING
+  IN_PREPARATION
+  READY
+  DELIVERED
+  CANCELLED
+  PAID
+}
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  MAINTENANCE
+}
+
+model User {
+  id          Int      @id @default(autoincrement())
+  name        String   @db.VarChar(150)
+  email       String   @db.VarChar(250) @unique
+  password    String   @db.VarChar(150)
+  role        Role     @default(CUSTOMER)
+  avatarUrl   String?
+  createdAt   DateTime @default(now())
+  // Relación con restaurante (solo para administradores)
+  restaurant  Restaurant? @relation(fields: [restaurantId], references: [id])
+  restaurantId Int?
+  // Eliminada la relación con Orders
+  // orders      Order[]  <- ESTA ES LA QUE DEBES ELIMINAR
+}
+
+model TemporaryCustomer {
+  id          Int      @id @default(autoincrement())
+  sessionId   String   @unique
+  table       Table    @relation(fields: [tableId], references: [id])
+  tableId     Int
+  createdAt   DateTime @default(now())
+  // Relación con Orders (aquí es donde realmente pertenece)
+  orders      Order[]
+}
+
+model Restaurant {
+  id          Int      @id @default(autoincrement())
+  name        String   @db.VarChar(150)
+  address     String
+  phone       String?
+  logoUrl     String?
+  // Relaciones
+  tables      Table[]
+  dishes      Dish[]
+  menus       Menu[]
+  staff       User[]
+}
+
+model Table {
+  id          Int      @id @default(autoincrement())
+  number      Int
+  capacity    Int
+  status      TableStatus
+  qrCode      String   @unique @db.VarChar(80)
+  nfcTag      String?  @unique
+  // Relaciones
+  restaurant  Restaurant @relation(fields: [restaurantId], references: [id])
+  restaurantId Int
+  orders      Order[]
+  customers   TemporaryCustomer[]
+}
+
+model Dish {
+  id          Int       @id @default(autoincrement())
+  name        String    @db.VarChar(150)
+  description String?
+  price       Float
+  stock       Int
+  isAvailable Boolean   @default(true)
+  category    String
+  imageUrl    String?
+  prepTime    Int       // en minutos
+  // Relaciones
+  restaurant  Restaurant @relation(fields: [restaurantId], references: [id])
+  restaurantId Int
+  orderItems  OrderItem[]
+  menuItems   MenuItem[]
+}
+
+model Order {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique
+  status      OrderStatus
+  total       Float
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  // Relaciones
+  customer    TemporaryCustomer @relation(fields: [customerId], references: [id])
+  customerId  Int
+  table       Table @relation(fields: [tableId], references: [id])
+  tableId     Int
+  items       OrderItem[]
+  receipts    Receipt[]
+}
+
+model OrderItem {
+  id          Int     @id @default(autoincrement())
+  quantity    Int
+  notes       String?
+  status      OrderStatus
+  // Relaciones
+  order       Order @relation(fields: [orderId], references: [id])
+  orderId     Int
+  dish        Dish @relation(fields: [dishId], references: [id])
+  dishId      Int
+}
+
+model Receipt {
+  id          Int       @id @default(autoincrement())
+  total       Float
+  tax         Float
+  subtotal    Float
+  createdAt   DateTime  @default(now())
+  // Relaciones
+  order       Order @relation(fields: [orderId], references: [id])
+  orderId     Int
+}
+
+model Menu {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String?
+  isActive    Boolean   @default(true)
+  // Relaciones
+  restaurant  Restaurant @relation(fields: [restaurantId], references: [id])
+  restaurantId Int
+  items       MenuItem[]
+}
+
+model MenuItem {
+  id          Int     @id @default(autoincrement())
+  // Relaciones
+  menu        Menu    @relation(fields: [menuId], references: [id])
+  menuId      Int
+  dish        Dish    @relation(fields: [dishId], references: [id])
+  dishId      Int
+}

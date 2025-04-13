@@ -1,0 +1,154 @@
+openapi: 3.0.0
+info:
+  title: Dish API
+  version: 1.0.0
+  description: API endpoints for managing dishes
+
+paths:
+  /dish/only/{id}:
+    get:
+      summary: Get a dish by ID
+      tags:
+        - Dish
+      parameters:
+        - name: id
+          in: path
+          description: ID of the dish
+          required: true
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Dish retrieved successfully
+        404:
+          description: Dish not found
+        500:
+          description: Server error
+
+  /dish/all:
+    get:
+      summary: Get all dishes
+      tags:
+        - Dish
+      responses:
+        200:
+          description: List of dishes retrieved successfully
+        500:
+          description: Server error
+
+  /dish/create:
+    post:
+      summary: Create a new dish
+      tags:
+        - Dish
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - price
+                - stock
+                - category
+                - prepTime
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                price:
+                  type: number
+                stock:
+                  type: integer
+                isAvailable:
+                  type: boolean
+                category:
+                  type: string
+                imageUrl:
+                  type: string
+                prepTime:
+                  type: integer
+              example:
+                name: "Pique Macho"
+                description: "Plato típico boliviano con carne, papas y huevo"
+                price: 35.5
+                stock: 10
+                isAvailable: true
+                category: "Comida típica"
+                imageUrl: "https://ejemplo.com/imagen.jpg"
+                prepTime: 25
+      responses:
+        201:
+          description: Dish created successfully
+        400:
+          description: Missing required fields
+        500:
+          description: Server error
+
+  /dish/update/{id}:
+    put:
+      summary: Update an existing dish
+      description: >
+        Permite actualizar un platillo existente.  
+        **No es necesario enviar todos los campos en el body**; solo se actualizarán los campos que se incluyan.
+      tags:
+        - Dish
+      parameters:
+        - name: id
+          in: path
+          description: ID of the dish to update
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                price:
+                  type: number
+                stock:
+                  type: integer
+                isAvailable:
+                  type: boolean
+                category:
+                  type: string
+                imageUrl:
+                  type: string
+                prepTime:
+                  type: integer
+              example:
+                name: "Salteñas"
+                price: 10.5
+                stock: 50
+      responses:
+        200:
+          description: Dish updated successfully
+        500:
+          description: Server error
+
+  /dish/delete/{id}:
+    delete:
+      summary: Delete a dish by ID
+      tags:
+        - Dish
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: ID of the dish to delete
+      responses:
+        200:
+          description: Dish deleted successfully
+        500:
+          description: Server error
