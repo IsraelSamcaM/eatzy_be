@@ -7,7 +7,7 @@ const dishRouter = Router();
 dishRouter.get('/only/:id', GetDishById);
 dishRouter.get('/all', GetDishs);
 dishRouter.post('/create', CreateDish);
-dishRouter.put('/update/:id', UpdateDish);
+dishRouter.patch('/update/:id', UpdateDish);
 dishRouter.delete('/delete/:id', DeleteDish);
 
 export default dishRouter

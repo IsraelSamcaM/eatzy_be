@@ -4,10 +4,30 @@ info:
   version: 1.0.0
   description: API endpoints for managing dishes
 
+components:
+  schemas:
+    DishCategory:
+      type: string
+      enum:
+        - APPETIZER
+        - SALAD
+        - MAIN_COURSE
+        - DESSERT
+        - BURGERS
+        - TEA
+        - SODA
+        - JUICE
+        - COFFEE
+        - OTHER
+    DishType:
+      type: string
+      enum:
+        - FOOD
+        - DRINK
+
 paths:
-  paths:
   /multimedia/upload:
-    post:  # <<--- Este 'post' debe estar indentado correctamente
+    post:
       summary: Upload an image
       description: Uploads a single image to Cloudinary. Accepts only .jpg, .jpeg, .png, and .webp formats.
       tags:
@@ -42,31 +62,8 @@ paths:
                     example: https://res.cloudinary.com/your_cloud/image/upload/v1234567890/images/sample.jpg
         '400':
           description: Invalid request or unsupported file type
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: false
-                  message:
-                    type: string
-                    example: Invalid image extension
         '500':
-          description: Internal server error while uploading image
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: false
-                  message:
-                    type: string
-                    example: Error uploading image
-
+          description: Internal server error
 
   /dish/only/{id}:
     get:
@@ -81,11 +78,11 @@ paths:
           schema:
             type: integer
       responses:
-        200:
+        '200':
           description: Dish retrieved successfully
-        404:
+        '404':
           description: Dish not found
-        500:
+        '500':
           description: Server error
 
   /dish/all:
@@ -94,9 +91,9 @@ paths:
       tags:
         - Dish
       responses:
-        200:
+        '200':
           description: List of dishes retrieved successfully
-        500:
+        '500':
           description: Server error
 
   /dish/create:
@@ -113,7 +110,7 @@ paths:
               required:
                 - name
                 - price
-                - stock
+                - type
                 - category
                 - prepTime
               properties:
@@ -123,12 +120,12 @@ paths:
                   type: string
                 price:
                   type: number
-                stock:
-                  type: integer
                 isAvailable:
                   type: boolean
                 category:
-                  type: string
+                  $ref: '#/components/schemas/DishCategory'
+                type:
+                  $ref: '#/components/schemas/DishType'
                 imageUrl:
                   type: string
                 prepTime:
@@ -137,21 +134,23 @@ paths:
                 name: "Pique Macho"
                 description: "Plato típico boliviano con carne, papas y huevo"
                 price: 35.5
-                stock: 10
                 isAvailable: true
-                category: "Comida típica"
+                category: "MAIN_COURSE"
+                type: "FOOD"
                 imageUrl: "https://ejemplo.com/imagen.jpg"
                 prepTime: 25
       responses:
-        201:
+        '201':
           description: Dish created successfully
-        400:
+        '400':
           description: Missing required fields
-        500:
+        '409':
+          description: Duplicate dish name
+        '500':
           description: Server error
 
   /dish/update/{id}:
-    put:
+    patch:
       summary: Update an existing dish
       description: >
         Permite actualizar un platillo existente.  
@@ -178,12 +177,12 @@ paths:
                   type: string
                 price:
                   type: number
-                stock:
-                  type: integer
                 isAvailable:
                   type: boolean
                 category:
-                  type: string
+                  $ref: '#/components/schemas/DishCategory'
+                type:
+                  $ref: '#/components/schemas/DishType'
                 imageUrl:
                   type: string
                 prepTime:
@@ -191,11 +190,17 @@ paths:
               example:
                 name: "Salteñas"
                 price: 10.5
-                stock: 50
+                isAvailable: true
+                category: "APPETIZER"
+                type: "FOOD"
       responses:
-        200:
+        '200':
           description: Dish updated successfully
-        500:
+        '400':
+          description: Invalid type or category
+        '409':
+          description: Duplicate dish name
+        '500':
           description: Server error
 
   /dish/delete/{id}:
@@ -211,7 +216,7 @@ paths:
             type: integer
           description: ID of the dish to delete
       responses:
-        200:
+        '200':
           description: Dish deleted successfully
-        500:
+        '500':
           description: Server error
