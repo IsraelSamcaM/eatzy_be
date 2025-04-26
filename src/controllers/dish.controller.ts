@@ -54,6 +54,10 @@ export const GetDishs = async (req: Request, res: Response) => {
 export const UpdateDish = async (req: Request, res: Response) => {
     try {
       const dishId = parseInt(req.params.id);
+      const existingDish = await prisma.dish.findUnique({ where: { id: dishId } });
+    if (!existingDish) {
+      return res.status(404).json({ success: false, message: "Dish not found" });
+    }
       const { name, description, price, stock, isAvailable, category, imageUrl, prepTime,} = req.body;
       const dataToUpdate: any = {};
         if (name !== undefined) dataToUpdate.name = name;
@@ -79,9 +83,18 @@ export const UpdateDish = async (req: Request, res: Response) => {
 export const DeleteDish = async (req: Request, res: Response) => {
     try {
         const dishId = parseInt(req.params.id);
+        const dish = await prisma.dish.findUnique({ where: { id: dishId } });
+        if (!dish) {
+            return res.status(404).json({ success: false, message: "Dish not found" });
+        }
+        const userRestaurantId = (req as any).user?.restaurantId; 
+        if (!userRestaurantId || dish.restaurantId !== userRestaurantId) {
+          return res.status(403).json({ success: false, message: "You do not have permission to delete this dish" });
+        }
         await prisma.dish.delete({ where: { id: dishId } });
         return res.status(200).json({ success: true, message: "Dish deleted" });
-    } catch (error) {
+      } catch (error) {
+        console.log(error);
         return res.status(500).json({ success: false, message: "Error deleting dish" });
     }
 };
