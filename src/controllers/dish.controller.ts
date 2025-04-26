@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { DishCategory, DishType, Prisma } from "@prisma/client";
 import { prisma } from "../index";
+import { database } from "firebase-admin";
 
 export const CreateDish = async (req: Request, res: Response) => {
   try {
@@ -17,7 +18,6 @@ export const CreateDish = async (req: Request, res: Response) => {
         .json({ success: false, message: "Missing required fields" });
     }
 
-    // Validar enums
     if (!Object.values(DishType).includes(upperType as DishType)) {
       return res.status(400).json({
         success: false,
@@ -32,7 +32,6 @@ export const CreateDish = async (req: Request, res: Response) => {
       });
     }
 
-    // Verificar nombre duplicado para el restaurante (por ahora hardcoded id = 1)
     const existingDish = await prisma.dish.findFirst({
       where: {
         name: trimmedName,
@@ -84,14 +83,95 @@ export const GetDishById = async (req: Request, res: Response) => {
     }
 };
 
-export const GetDishs = async (req: Request, res: Response) => {
-    try {
-      const dishes = await prisma.dish.findMany({});
-      return res.status(200).json({ success: true, data: dishes });
-    } catch (error) {
-      return res.status(500).json({ success: false, message: "Error retrieving dishes" });
-    }
+export const GetDishesWithPagination = async (req: Request, res: Response) => {
+  try {
+    const { page = 1, limit = 10 } = req.query as { page?: string; limit?: string };
+    const pageNumber = parseInt(page as string, 10) || 1;
+    const limitNumber = parseInt(limit as string, 10) || 10;
+
+    const dishes = await prisma.dish.findMany({
+      skip: (pageNumber - 1) * limitNumber,
+      take: limitNumber,
+    });
+
+    const total = await prisma.dish.count();
+    return res.status(200).json({ 
+      success: true, 
+      data: dishes,
+      message: `Total: ${total}, Page: ${pageNumber}, Limit: ${limitNumber}, TotalPages: ${Math.ceil(total / limitNumber)}`
+    });
+  } catch (error) {
+    console.error("Error retrieving dishes:", error);
+    return res.status(500).json({ success: false, message: "Error retrieving dishes" });
+  }
 }
+
+export const GetDishes = async (req: Request, res: Response) => {
+  try {
+    const { isAvailable } = req.query as { isAvailable?: string };
+    let whereCondition = {};
+    if (isAvailable !== undefined) {
+      const isAvailableBoolean = isAvailable === "true";
+      whereCondition = { isAvailable: isAvailableBoolean };
+    }
+    const dishes = await prisma.dish.findMany({
+      where: whereCondition,
+    });
+    return res.status(200).json({ success: true, message: "Dishes fetched successfully", data: dishes });
+  } catch (error) {
+    console.error("GetDishes error:", error);
+    return res.status(500).json({ success: false, message: "Error fetching dishes" });
+  }
+};
+
+export const filterDishes = async (req: Request, res: Response) => {
+  try {
+    const { category, type, search } = req.query as { category?: string; type?: string; search?: string };
+    const upperType = type?.toUpperCase().trim();
+    const upperCategory = category?.toUpperCase().trim();
+    const searchTerm = search?.trim();
+
+    if (!upperType && !upperCategory && !searchTerm) {
+      const dishes = await prisma.dish.findMany({});
+      return res.status(200).json({ success: true, message: "Fields such as category or type or search are missing", data: dishes });
+    }
+
+    if (upperType && !Object.values(DishType).includes(upperType as DishType)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid type. Must be one of: ${Object.values(DishType).join(", ")}`,
+      });
+    }
+
+    if (upperCategory && !Object.values(DishCategory).includes(upperCategory as DishCategory)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid category. Must be one of: ${Object.values(DishCategory).join(", ")}`,
+      });
+    }
+
+    const dishes = await prisma.dish.findMany({
+      where: {
+        AND: [
+          upperType ? { type: upperType as DishType } : {},
+          upperCategory ? { category: upperCategory as DishCategory } : {},
+          searchTerm
+            ? {
+                OR: [
+                  { name: { contains: searchTerm, mode: "insensitive" } },
+                  { description: { contains: searchTerm, mode: "insensitive" } },
+                ],
+              }
+            : {},
+        ],
+      },
+    });
+    return res.status(200).json({ success: true, message: "Dishes fetched successfully", data: dishes });
+  } catch (error) {
+    console.error("Get dish by category error:", error);
+    return res.status(500).json({ success: false, message: "Error fetching dishes by category and type" });
+  }
+};
 
 export const UpdateDish = async (req: Request, res: Response) => {
   try {
