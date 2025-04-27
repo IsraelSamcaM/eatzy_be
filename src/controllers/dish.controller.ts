@@ -108,14 +108,26 @@ export const GetDishesWithPagination = async (req: Request, res: Response) => {
 
 export const GetDishes = async (req: Request, res: Response) => {
   try {
-    const { isAvailable } = req.query as { isAvailable?: string };
-    let whereCondition = {};
+    const { isAvailable, category } = req.query as { isAvailable?: string; category?: string };
+    const upperCategory = category?.toUpperCase().trim();
+    let whereCondition: any = {};
+    if (upperCategory && !Object.values(DishCategory).includes(upperCategory as DishCategory)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid category. Must be one of: ${Object.values(DishCategory).join(", ")}`,
+      });
+    }else{
+      whereCondition.category = upperCategory;
+    }
+    
     if (isAvailable !== undefined) {
-      const isAvailableBoolean = isAvailable === "true";
-      whereCondition = { isAvailable: isAvailableBoolean };
+      whereCondition.isAvailable = isAvailable === "true";
     }
     const dishes = await prisma.dish.findMany({
       where: whereCondition,
+      orderBy: {
+        name: 'asc',
+      },
     });
     return res.status(200).json({ success: true, message: "Dishes fetched successfully", data: dishes });
   } catch (error) {
@@ -126,7 +138,8 @@ export const GetDishes = async (req: Request, res: Response) => {
 
 export const filterDishes = async (req: Request, res: Response) => {
   try {
-    const { category, type, search } = req.query as { category?: string; type?: string; search?: string };
+    const { category, type, search } = req.query as { category?: string; type?: string; search?: string; isAvailable?: string };
+    const isAvailable = req.query.isAvailable === "true" ? true : false;
     const upperType = type?.toUpperCase().trim();
     const upperCategory = category?.toUpperCase().trim();
     const searchTerm = search?.trim();
@@ -163,6 +176,7 @@ export const filterDishes = async (req: Request, res: Response) => {
                 ],
               }
             : {},
+            req.query.isAvailable !== undefined ? { isAvailable: isAvailable } : {},
         ],
       },
     });

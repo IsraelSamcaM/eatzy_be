@@ -107,6 +107,7 @@ paths:
         - `/dish/all` - Returns all dishes
         - `/dish/all?isAvailable=true` - Returns only available dishes
         - `/dish/all?isAvailable=false` - Returns only unavailable dishes
+        - `/dish/all?category=MAIN_COURSE&isAvailable=true` - Returns all available main course dishes
       tags:
         - Dish
       parameters:
@@ -116,6 +117,12 @@ paths:
           required: false
           schema:
             type: boolean
+        - name: category
+          in: query
+          description: Filter dishes by category
+          required: false
+          schema:
+            $ref: '#/components/schemas/DishCategory'
       responses:
         '200':
           description: List of dishes retrieved successfully
@@ -184,7 +191,10 @@ paths:
         - `/dish/filter?category=MAIN_COURSE` - Returns all main course dishes
         - `/dish/filter?type=DRINK` - Returns all drinks
         - `/dish/filter?search=pasta` - Returns dishes with "pasta" in name or description
-        - `/dish/filter?category=DESSERT&type=FOOD` - Returns all dessert foods
+        - `/dish/filter?isAvailable=true` - Returns all available dishes
+        - `/dish/filter?category=DESSERT&type=FOOD ` - Returns all dessert foods
+        - `/dish/filter?category=APPETIZER&isAvailable=false` - Returns all unavailable appetizers
+        - `/dish/filter?search=salad&isAvailable=true` - Returns all available dishes with "salad" in name or description
       tags:
         - Dish
       parameters:
@@ -206,6 +216,12 @@ paths:
           required: false
           schema:
             type: string
+        - name: isAvailable
+          in: query
+          description: Filter by availability status
+          required: false
+          schema:
+            type: boolean
       responses:
         '200':
           description: Filtered dishes retrieved successfully
