@@ -7,6 +7,12 @@ CREATE TYPE "OrderStatus" AS ENUM ('PENDING', 'IN_PREPARATION', 'READY', 'DELIVE
 -- CreateEnum
 CREATE TYPE "TableStatus" AS ENUM ('AVAILABLE', 'OCCUPIED', 'RESERVED', 'MAINTENANCE');
 
+-- CreateEnum
+CREATE TYPE "DishType" AS ENUM ('FOOD', 'DRINK');
+
+-- CreateEnum
+CREATE TYPE "DishCategory" AS ENUM ('APPETIZER', 'SALAD', 'MAIN_COURSE', 'DESSERT', 'BURGERS', 'TEA', 'SODA', 'JUICE', 'COFFEE', 'OTHER');
+
 -- CreateTable
 CREATE TABLE "User" (
     "id" SERIAL NOT NULL,
@@ -59,11 +65,11 @@ CREATE TABLE "Table" (
 CREATE TABLE "Dish" (
     "id" SERIAL NOT NULL,
     "name" VARCHAR(150) NOT NULL,
+    "type" "DishType" NOT NULL,
     "description" TEXT,
     "price" DOUBLE PRECISION NOT NULL,
-    "stock" INTEGER NOT NULL,
     "isAvailable" BOOLEAN NOT NULL DEFAULT true,
-    "category" TEXT NOT NULL,
+    "category" "DishCategory" NOT NULL,
     "imageUrl" TEXT,
     "prepTime" INTEGER NOT NULL,
     "restaurantId" INTEGER NOT NULL,
@@ -109,26 +115,6 @@ CREATE TABLE "Receipt" (
     CONSTRAINT "Receipt_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "Menu" (
-    "id" SERIAL NOT NULL,
-    "name" TEXT NOT NULL,
-    "description" TEXT,
-    "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "restaurantId" INTEGER NOT NULL,
-
-    CONSTRAINT "Menu_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "MenuItem" (
-    "id" SERIAL NOT NULL,
-    "menuId" INTEGER NOT NULL,
-    "dishId" INTEGER NOT NULL,
-
-    CONSTRAINT "MenuItem_pkey" PRIMARY KEY ("id")
-);
-
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
@@ -170,12 +156,3 @@ ALTER TABLE "OrderItem" ADD CONSTRAINT "OrderItem_dishId_fkey" FOREIGN KEY ("dis
 
 -- AddForeignKey
 ALTER TABLE "Receipt" ADD CONSTRAINT "Receipt_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Menu" ADD CONSTRAINT "Menu_restaurantId_fkey" FOREIGN KEY ("restaurantId") REFERENCES "Restaurant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "MenuItem" ADD CONSTRAINT "MenuItem_menuId_fkey" FOREIGN KEY ("menuId") REFERENCES "Menu"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "MenuItem" ADD CONSTRAINT "MenuItem_dishId_fkey" FOREIGN KEY ("dishId") REFERENCES "Dish"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

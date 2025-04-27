@@ -2,12 +2,34 @@ openapi: 3.0.0
 info:
   title: Dish API
   version: 1.0.0
-  description: API endpoints for managing dishes
+  description: API endpoints for managing dishes in a restaurant system
+
+components:
+  schemas:
+    DishCategory:
+      type: string
+      enum:
+        - APPETIZER
+        - SALAD
+        - MAIN_COURSE
+        - DESSERT
+        - BURGERS
+        - TEA
+        - SODA
+        - JUICE
+        - COFFEE
+        - OTHER
+      description: Category of the dish
+    DishType:
+      type: string
+      enum:
+        - FOOD
+        - DRINK
+      description: Type of the dish (food or drink)
 
 paths:
-  paths:
   /multimedia/upload:
-    post:  # <<--- Este 'post' debe estar indentado correctamente
+    post:
       summary: Upload an image
       description: Uploads a single image to Cloudinary. Accepts only .jpg, .jpeg, .png, and .webp formats.
       tags:
@@ -42,61 +64,180 @@ paths:
                     example: https://res.cloudinary.com/your_cloud/image/upload/v1234567890/images/sample.jpg
         '400':
           description: Invalid request or unsupported file type
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: false
-                  message:
-                    type: string
-                    example: Invalid image extension
         '500':
-          description: Internal server error while uploading image
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: false
-                  message:
-                    type: string
-                    example: Error uploading image
-
+          description: Internal server error
 
   /dish/only/{id}:
     get:
       summary: Get a dish by ID
+      description: Retrieve detailed information about a specific dish using its unique ID.
       tags:
         - Dish
       parameters:
         - name: id
           in: path
-          description: ID of the dish
+          description: ID of the dish to retrieve
           required: true
           schema:
             type: integer
       responses:
-        200:
+        '200':
           description: Dish retrieved successfully
-        404:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data: 
+                    type: object
+        '404':
           description: Dish not found
-        500:
+        '500':
           description: Server error
 
   /dish/all:
     get:
       summary: Get all dishes
+      description: |
+        Retrieve all dishes in the system. Can be filtered by availability.
+        
+        **Filtering examples:**
+        - `/dish/all` - Returns all dishes
+        - `/dish/all?isAvailable=true` - Returns only available dishes
+        - `/dish/all?isAvailable=false` - Returns only unavailable dishes
+        - `/dish/all?category=MAIN_COURSE&isAvailable=true` - Returns all available main course dishes
       tags:
         - Dish
+      parameters:
+        - name: isAvailable
+          in: query
+          description: Filter dishes by availability status
+          required: false
+          schema:
+            type: boolean
+        - name: category
+          in: query
+          description: Filter dishes by category
+          required: false
+          schema:
+            $ref: '#/components/schemas/DishCategory'
       responses:
-        200:
+        '200':
           description: List of dishes retrieved successfully
-        500:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items: 
+                      type: object
+        '500':
+          description: Server error
+
+  /dish/all/pagination:
+    get:
+      summary: Get dishes with pagination
+      description: Retrieve dishes with pagination support. Defaults to page 1 with 10 items per page.
+      tags:
+        - Dish
+      parameters:
+        - name: page
+          in: query
+          description: Page number (default 1)
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Number of items per page (default 10)
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Paginated list of dishes retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items: 
+                      type: object
+                  message:
+                    type: string
+                    example: "Total: 50, Page: 1, Limit: 10, TotalPages: 5"
+        '500':
+          description: Server error
+
+  /dish/filter:
+    get:
+      summary: Filter dishes by criteria
+      description: |
+        Filter dishes by category, type, or search term. All parameters are optional.
+        
+        **Examples:**
+        - `/dish/filter?category=MAIN_COURSE` - Returns all main course dishes
+        - `/dish/filter?type=DRINK` - Returns all drinks
+        - `/dish/filter?search=pasta` - Returns dishes with "pasta" in name or description
+        - `/dish/filter?isAvailable=true` - Returns all available dishes
+        - `/dish/filter?category=DESSERT&type=FOOD ` - Returns all dessert foods
+        - `/dish/filter?category=APPETIZER&isAvailable=false` - Returns all unavailable appetizers
+        - `/dish/filter?search=salad&isAvailable=true` - Returns all available dishes with "salad" in name or description
+      tags:
+        - Dish
+      parameters:
+        - name: category
+          in: query
+          description: Filter by dish category
+          required: false
+          schema:
+            $ref: '#/components/schemas/DishCategory'
+        - name: type
+          in: query
+          description: Filter by dish type (FOOD or DRINK)
+          required: false
+          schema:
+            $ref: '#/components/schemas/DishType'
+        - name: search
+          in: query
+          description: Search term to filter by name or description
+          required: false
+          schema:
+            type: string
+        - name: isAvailable
+          in: query
+          description: Filter by availability status
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Filtered dishes retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+        '400':
+          description: Invalid type or category provided
+        '500':
           description: Server error
 
   /dish/create:
@@ -113,49 +254,73 @@ paths:
               required:
                 - name
                 - price
-                - stock
+                - type
                 - category
                 - prepTime
               properties:
                 name:
                   type: string
+                  description: Name of the dish (must be unique)
                 description:
                   type: string
+                  description: Description of the dish
                 price:
                   type: number
-                stock:
-                  type: integer
+                  description: Price of the dish
                 isAvailable:
                   type: boolean
+                  description: Availability status (default true)
+                  default: true
                 category:
-                  type: string
+                  $ref: '#/components/schemas/DishCategory'
+                type:
+                  $ref: '#/components/schemas/DishType'
                 imageUrl:
                   type: string
+                  description: URL of the dish image
                 prepTime:
                   type: integer
+                  description: Preparation time in minutes
               example:
                 name: "Pique Macho"
                 description: "Plato típico boliviano con carne, papas y huevo"
                 price: 35.5
-                stock: 10
                 isAvailable: true
-                category: "Comida típica"
+                category: "MAIN_COURSE"
+                type: "FOOD"
                 imageUrl: "https://ejemplo.com/imagen.jpg"
                 prepTime: 25
       responses:
-        201:
+        '201':
           description: Dish created successfully
-        400:
-          description: Missing required fields
-        500:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    example: "Dish created successfully"
+                  data:
+                    type: object
+        '400':
+          description: Missing required fields or invalid data
+        '409':
+          description: Duplicate dish name
+        '500':
           description: Server error
 
   /dish/update/{id}:
-    put:
+    patch:
       summary: Update an existing dish
-      description: >
-        Permite actualizar un platillo existente.  
-        **No es necesario enviar todos los campos en el body**; solo se actualizarán los campos que se incluyan.
+      description: |
+        Update an existing dish. Only include the fields you want to update.
+        
+        **Partial update example:**
+        - You can send just `{ "price": 40 }` to update only the price
+        - Or `{ "isAvailable": false, "description": "New description" }` to update multiple fields
       tags:
         - Dish
       parameters:
@@ -178,12 +343,12 @@ paths:
                   type: string
                 price:
                   type: number
-                stock:
-                  type: integer
                 isAvailable:
                   type: boolean
                 category:
-                  type: string
+                  $ref: '#/components/schemas/DishCategory'
+                type:
+                  $ref: '#/components/schemas/DishType'
                 imageUrl:
                   type: string
                 prepTime:
@@ -191,16 +356,35 @@ paths:
               example:
                 name: "Salteñas"
                 price: 10.5
-                stock: 50
+                isAvailable: true
+                category: "APPETIZER"
+                type: "FOOD"
       responses:
-        200:
+        '200':
           description: Dish updated successfully
-        500:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    example: "Dish updated successfully"
+                  data:
+                    type: object
+        '400':
+          description: Invalid type or category
+        '409':
+          description: Duplicate dish name
+        '500':
           description: Server error
 
   /dish/delete/{id}:
     delete:
       summary: Delete a dish by ID
+      description: Permanently delete a dish from the system.
       tags:
         - Dish
       parameters:
@@ -211,7 +395,16 @@ paths:
             type: integer
           description: ID of the dish to delete
       responses:
-        200:
+        '200':
           description: Dish deleted successfully
-        500:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        '500':
           description: Server error

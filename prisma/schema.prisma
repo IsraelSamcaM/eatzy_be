@@ -62,7 +62,6 @@ model Restaurant {
   // Relaciones
   tables      Table[]
   dishes      Dish[]
-  menus       Menu[]
   staff       User[]
 }
 
@@ -83,18 +82,34 @@ model Table {
 model Dish {
   id          Int       @id @default(autoincrement())
   name        String    @db.VarChar(150)
+  type        DishType    
   description String?
   price       Float
-  stock       Int
   isAvailable Boolean   @default(true)
-  category    String
+  category    DishCategory
   imageUrl    String?
   prepTime    Int       // en minutos
-  // Relaciones
   restaurant  Restaurant @relation(fields: [restaurantId], references: [id])
   restaurantId Int
   orderItems  OrderItem[]
-  menuItems   MenuItem[]
+}
+
+enum DishType {
+  FOOD
+  DRINK
+}
+
+enum DishCategory {
+  APPETIZER
+  SALAD
+  MAIN_COURSE
+  DESSERT
+  BURGERS
+  TEA
+  SODA
+  JUICE
+  COFFEE
+  OTHER
 }
 
 model Order {
@@ -134,24 +149,4 @@ model Receipt {
   // Relaciones
   order       Order @relation(fields: [orderId], references: [id])
   orderId     Int
-}
-
-model Menu {
-  id          Int       @id @default(autoincrement())
-  name        String
-  description String?
-  isActive    Boolean   @default(true)
-  // Relaciones
-  restaurant  Restaurant @relation(fields: [restaurantId], references: [id])
-  restaurantId Int
-  items       MenuItem[]
-}
-
-model MenuItem {
-  id          Int     @id @default(autoincrement())
-  // Relaciones
-  menu        Menu    @relation(fields: [menuId], references: [id])
-  menuId      Int
-  dish        Dish    @relation(fields: [dishId], references: [id])
-  dishId      Int
 }
