@@ -376,6 +376,8 @@ paths:
                     type: object
         '400':
           description: Invalid type or category
+        '404':
+          description: Dish not found
         '409':
           description: Duplicate dish name
         '500':
@@ -406,5 +408,7 @@ paths:
                     type: boolean
                   message:
                     type: string
+        '404':
+          description: Dish not found
         '500':
           description: Server error
