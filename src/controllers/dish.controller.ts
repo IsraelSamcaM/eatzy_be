@@ -11,7 +11,6 @@ export const CreateDish = async (req: Request, res: Response) => {
     const upperType = type?.toUpperCase();
     const upperCategory = category?.toUpperCase();
 
-    // Validar campos requeridos
     if (!trimmedName || !price || !upperType || !upperCategory || !prepTime) {
       return res
         .status(400)
