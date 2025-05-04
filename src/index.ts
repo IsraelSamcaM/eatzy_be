@@ -33,8 +33,5 @@ app.get('/', (req: Request, res: Response) => {
     res.send('Hola Node + Typescript + Express');
 });
 
-app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
-});
-
-export { app, prisma };
+export default app;
+export { prisma };
