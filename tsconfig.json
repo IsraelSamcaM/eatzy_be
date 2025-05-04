@@ -8,6 +8,6 @@
       "skipLibCheck": true,
       "forceConsistentCasingInFileNames": true
     },
-    "include": ["src/**/*.ts", "server.ts","api"],
+    "include": ["src/**/*.ts", "server.ts","api/*.ts"],
     "exclude": ["node_modules"]
   }
