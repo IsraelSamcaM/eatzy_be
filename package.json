@@ -6,9 +6,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "ts-node src/index.ts",
-    "dev": "nodemon src/server.ts",
+    "dev": "nodemon server.ts",
     "build": "tsc",
-    "serve": "node dist/server.js"
+    "serve": "node server.js"
   },
   "author": "DTIC",
   "license": "ISC",
