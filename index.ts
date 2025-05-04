@@ -1,4 +1,4 @@
-import app from '../src/index';
+import app from './src/index';
 import { createServer } from 'http';
 
 module.exports = (req: any, res: any) => {
