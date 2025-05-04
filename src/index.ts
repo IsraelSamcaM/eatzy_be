@@ -27,9 +27,7 @@ app.use('/restaurant', restaurantRouter );
 app.use('/multimedia', multimediaRouter );
 swaggerSetup(app);
 
-app.get('/', (req: Request, res: Response) => {
-    res.send('Hola Node + Typescript + Express');
-});
+app.get('/', (_, res) => res.send('Hola desde Express en Vercel'));
 
 export default app;
 export { prisma };

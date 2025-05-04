@@ -1,7 +1,6 @@
 import app from '../src/index';
-import { createServer } from 'http';
+import { NowRequest, NowResponse } from '@vercel/node';
 
-module.exports = (req: any, res: any) => {
-    const server = createServer(app);
-    server.emit('request', req, res);
+export default (req: NowRequest, res: NowResponse) => {
+    app(req, res);
 };
