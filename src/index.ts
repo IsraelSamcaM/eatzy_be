@@ -1,33 +1,51 @@
-import express, { Request, Response } from "express";
-require('dotenv').config();
-import { PrismaClient } from "@prisma/client";
-import { swaggerSetup } from "./documentation/swagger";
-import dishRouter from "./routes/dish.route"; 
-import restaurantRouter from "./routes/restaurant.route"; 
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import { PrismaClient } from '@prisma/client';
+import dishRouter from './routes/dish.route';
 import multimediaRouter from "./routes/multimedia.routes";
+import restaurantRouter from './routes/restaurant.route';
+import tableRouter from './routes/table.route';
+import { swaggerSetup } from "./documentation/swagger";
+import cors from 'cors';
 
-
-const cors = require('cors');
-const prisma: PrismaClient = new PrismaClient();
-
+const prisma = new PrismaClient();
 const app = express();
-const corsOptions = {
-    origin: '*',
-    methods: 'GET,PUT,POST,DELETE,PATCH',
-    allowedHeaders: ['Content-Type', 'Authorization'],
-};
+const httpServer = createServer(app);
 
-app.use(cors(corsOptions));
-app.use(express.static('public'));
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ limit: '100mb', extended: true }));
+// Configuración de Socket.IO
+const io = new Server(httpServer, {
+    cors: {
+        origin: '*',
+        methods: ['GET', 'POST', 'PUT', 'DELETE']
+    }
+});
 
-app.use('/dish', dishRouter );
+// Middlewares
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Compartir io con las rutas
+app.set('io', io);
+
+// Rutas
+app.use('/dish', dishRouter);
 app.use('/restaurant', restaurantRouter );
 app.use('/multimedia', multimediaRouter );
+app.use('/table', tableRouter);
 swaggerSetup(app);
 
-app.get('/', (_, res) => res.send('Hola desde Express en Vercel'));
 
+// Manejo básico de conexiones Socket.IO
+io.on('connection', (socket) => {
+    console.log(`Cliente conectado: ${socket.id}`);
+
+    socket.on('disconnect', () => {
+        console.log(`Cliente desconectado: ${socket.id}`);
+    });
+});
+
+// Exportar para Vercel y desarrollo local
+export { httpServer as server, app, prisma };
 export default app;
-export { prisma };

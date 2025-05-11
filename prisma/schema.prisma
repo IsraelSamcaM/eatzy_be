@@ -66,15 +66,16 @@ model Restaurant {
 }
 
 model Table {
-  id          Int      @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   number      Int
   capacity    Int
   status      TableStatus
-  qrCode      String   @unique @db.VarChar(80)
-  nfcTag      String?  @unique
+  qrCode      String   
+  qrCodeUrl   String?  
+  delete      Boolean   @default(false)
   // Relaciones
   restaurant  Restaurant @relation(fields: [restaurantId], references: [id])
-  restaurantId Int
+  restaurantId Int        
   orders      Order[]
   customers   TemporaryCustomer[]
 }

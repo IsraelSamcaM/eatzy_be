@@ -1,10 +1,11 @@
-import app from "./src/index";
-import dotenv from "dotenv";
+import { server } from './src/index';
+import dotenv from 'dotenv';
 
 dotenv.config();
 
-const port = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;
 
-app.listen(port, () => {
-    console.log(`Servidor corriendo en http://localhost:${port}`);
+server.listen(PORT, () => {
+    console.log(`Servidor corriendo en http://localhost:${PORT}`);
+    console.log(`WebSocket corriendo en ws://localhost:${PORT}`);
 });

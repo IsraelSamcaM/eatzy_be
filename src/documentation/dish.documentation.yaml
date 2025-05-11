@@ -26,7 +26,37 @@ components:
         - FOOD
         - DRINK
       description: Type of the dish (food or drink)
-
+    TableStatus:
+      type: string
+      enum:
+        - AVAILABLE
+        - OCCUPIED
+        - RESERVED
+        - MAINTENANCE
+      description: Type of status for tables
+    WebSocketEvents:
+      type: object
+      description: |
+        El servidor web sockect corre en **ws://localhost:PORT** (en mi caso ws://localhost:8002)
+        Eventos emitidos a través de WebSocket:
+        
+        - **dish_created**: Emitido al crear un plato
+          - Data: Dish (el objeto completo del plato creado)
+        
+        - **dish_updated**: Emitido al actualizar un plato
+          - Data: Dish (el objeto completo del plato actualizado)
+        
+        - **dish_deleted**: Emitido al eliminar un plato
+          - Data: { id: number } (solo el ID del plato eliminado)
+        
+        - **table_created**: Emitido al crear una mesa
+          - Data: Table (el objeto completo de la mesa creada)
+        
+        - **table_occupied**: Emitido al escanear QR de mesa
+          - Data: Table (el objeto completo de la mesa ocupada)
+        
+        - **table_deleted**: Emitido al eliminar una mesa
+          - Data: { id: number } (solo el ID de la mesa eliminada)
 paths:
   /multimedia/upload:
     post:
@@ -243,6 +273,12 @@ paths:
   /dish/create:
     post:
       summary: Create a new dish
+      description: |
+        Crea un nuevo plato.
+        
+        **Emite evento WebSocket:**
+        - Nombre: dish_created
+        - Datos: El objeto Dish completo recién creado
       tags:
         - Dish
       requestBody:
@@ -321,6 +357,10 @@ paths:
         **Partial update example:**
         - You can send just `{ "price": 40 }` to update only the price
         - Or `{ "isAvailable": false, "description": "New description" }` to update multiple fields
+
+        **Emite evento WebSocket:**
+        - Nombre: dish_updated
+        - Datos: El objeto Dish completo actualizado
       tags:
         - Dish
       parameters:
@@ -386,7 +426,12 @@ paths:
   /dish/delete/{id}:
     delete:
       summary: Delete a dish by ID
-      description: Permanently delete a dish from the system.
+      description: |
+        Permanently delete a dish from the system.
+    
+        **Emite evento WebSocket:**
+            - Nombre: dish_deleted
+            - Datos: { id: number } (ID del plato eliminado)
       tags:
         - Dish
       parameters:
@@ -410,5 +455,213 @@ paths:
                     type: string
         '404':
           description: Dish not found
+        '500':
+          description: Server error
+  /table/all:
+    get:
+      summary: Get all tables
+      description: Retrieve all tables with optional status filtering. Returns only non-deleted tables.
+      tags:
+        - Table
+      parameters:
+        - name: status
+          in: query
+          description: Filter tables by status (AVAILABLE, OCCUPIED, RESERVED, MAINTENANCE)
+          required: false
+          schema:
+            type: string
+            enum:
+              - AVAILABLE
+              - OCCUPIED
+              - RESERVED
+              - MAINTENANCE
+      responses:
+        '200':
+          description: Tables retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Table'
+        '400':
+          description: Invalid status value provided
+        '500':
+          description: Server error
+  /table/only/{id}:
+    get:
+      summary: Get table by ID
+      description: Retrieve detailed information about a specific table including optional order details.
+      tags:
+        - Table
+      parameters:
+        - name: id
+          in: path
+          description: ID of the table to retrieve
+          required: true
+          schema:
+            type: integer
+        - name: includeDetails
+          in: query
+          description: Include order details with items and dishes (true/false)
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Table retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/TableWithDetails'
+        '404':
+          description: Table not found
+        '500':
+          description: Server error
+  /table/scan/{qrCodeUrl}:
+    get:
+      summary: Handle QR scan
+      description: |
+        Find table by QR code URL and update its status to OCCUPIED.
+
+        **Emite evento WebSocket:**
+        - Nombre: table_occupied
+        - Datos: El objeto Table completo actualizado
+      tags:
+        - Table
+      parameters:
+        - name: qrCodeUrl
+          in: path
+          description: URL of the QR code to scan
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: QR scanned successfully, table status updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/Table'
+        '404':
+          description: Table not found for given QR code
+        '500':
+          description: Server error
+  /table/create:
+    post:
+      summary: Create a new table with QR code
+      description: |
+        Create a new table and generate its QR code automatically.
+
+        **Emite evento WebSocket:**
+        - Nombre: table_created
+        - Datos: El objeto Table completo recién creado
+      tags:
+        - Table
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - number
+                - capacity
+                - status
+              properties:
+                number:
+                  type: integer
+                  description: Table number (must be unique)
+                capacity:
+                  type: integer
+                  description: Maximum number of people the table can accommodate
+                status:
+                  type: string
+                  enum:
+                    - AVAILABLE
+                    - OCCUPIED
+                    - RESERVED
+                    - MAINTENANCE
+                  description: Initial status of the table
+              example:
+                number: 5
+                capacity: 4
+                status: "AVAILABLE"
+      responses:
+        '201':
+          description: Table created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/Table'
+        '400':
+          description: Missing required fields or invalid status
+        '409':
+          description: Table with this number already exists
+        '500':
+          description: Server error
+
+  /table/delete/{id}:
+    delete:
+      summary: Delete a table (soft delete)
+      description: |
+        Mark a table as deleted (soft delete) and change its status to MAINTENANCE.
+
+        **Emite evento WebSocket:**
+        - Nombre: table_deleted
+        - Datos: { id: number } (ID de la mesa eliminada)
+      tags:
+        - Table
+      parameters:
+        - name: id
+          in: path
+          description: ID of the table to delete
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Table deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/Table'
+        '400':
+          description: Table has active orders or already deleted
+        '404':
+          description: Table not found
         '500':
           description: Server error

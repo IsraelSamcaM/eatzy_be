@@ -59,6 +59,9 @@ export const CreateDish = async (req: Request, res: Response) => {
       },
     });
 
+    const io = req.app.get('io');
+    io.emit('dish_created', newDish);
+
     return res.status(201).json({ success: true, message: "Dish created successfully", data: newDish, });
   } catch (error) {
     console.error("CreateDish error:", error);
@@ -248,6 +251,8 @@ export const UpdateDish = async (req: Request, res: Response) => {
       where: { id: dishId },
       data: dataToUpdate,
     });
+    const io = req.app.get('io');
+    io.emit('dish_updated', updatedDish);
 
     return res.status(200).json({ success: true, message: "Dish updated successfully", data: updatedDish });
   } catch (error) {
@@ -264,11 +269,9 @@ export const DeleteDish = async (req: Request, res: Response) => {
         if (!dish) {
             return res.status(404).json({ success: false, message: "Dish not found" });
         }
-        const userRestaurantId = (req as any).user?.restaurantId; 
-        if (!userRestaurantId || dish.restaurantId !== userRestaurantId) {
-          return res.status(403).json({ success: false, message: "You do not have permission to delete this dish" });
-        }
         await prisma.dish.delete({ where: { id: dishId } });
+        const io = req.app.get('io');
+        io.emit('dish_deleted', { id: dishId });
         return res.status(200).json({ success: true, message: "Dish deleted" });
       } catch (error) {
         console.log(error);
