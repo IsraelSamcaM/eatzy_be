@@ -8,6 +8,7 @@ import restaurantRouter from './routes/restaurant.route';
 import tableRouter from './routes/table.route';
 import { swaggerSetup } from "./documentation/swagger";
 import cors from 'cors';
+import orderRouter from './routes/order.route';
 
 const prisma = new PrismaClient();
 const app = express();
@@ -34,6 +35,7 @@ app.use('/dish', dishRouter);
 app.use('/restaurant', restaurantRouter );
 app.use('/multimedia', multimediaRouter );
 app.use('/table', tableRouter);
+app.use('/order', orderRouter)
 swaggerSetup(app);
 
 

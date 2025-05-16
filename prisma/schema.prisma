@@ -26,6 +26,7 @@ enum TableStatus {
   OCCUPIED
   RESERVED
   MAINTENANCE
+  DELETED
 }
 
 model User {
@@ -44,13 +45,13 @@ model User {
 }
 
 model TemporaryCustomer {
-  id          Int      @id @default(autoincrement())
-  sessionId   String   @unique
-  table       Table    @relation(fields: [tableId], references: [id])
-  tableId     Int
-  createdAt   DateTime @default(now())
-  // Relación con Orders (aquí es donde realmente pertenece)
-  orders      Order[]
+  id              Int             @id @default(autoincrement())
+  name_customer   String   
+  table           Table           @relation(fields: [tableId], references: [id])
+  tableId         Int
+  createdAt       DateTime        @default(now())
+  // Relación modificada
+  orders          OrderCustomer[] // Ahora a través de la tabla de unión
 }
 
 model Restaurant {
@@ -114,31 +115,45 @@ enum DishCategory {
 }
 
 model Order {
-  id          Int       @id @default(autoincrement())
-  code        String    @unique
+  id          Int                 @id @default(autoincrement())
+  code        String              @unique
   status      OrderStatus
   total       Float
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  // Relaciones
-  customer    TemporaryCustomer @relation(fields: [customerId], references: [id])
-  customerId  Int
-  table       Table @relation(fields: [tableId], references: [id])
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  // Relaciones modificadas
+  customers   OrderCustomer[]     // Relación muchos-a-muchos con TemporaryCustomer
+  table       Table               @relation(fields: [tableId], references: [id])
   tableId     Int
   items       OrderItem[]
   receipts    Receipt[]
 }
 
+model OrderCustomer {
+  order             Order               @relation(fields: [orderId], references: [id])
+  customer          TemporaryCustomer   @relation(fields: [customerId], references: [id])
+  orderId           Int
+  customerId        Int
+  assignedItems     OrderItem[]         // Ítems asignados a este usuario en esta orden
+
+  @@id([orderId, customerId])
+}
+
 model OrderItem {
-  id          Int     @id @default(autoincrement())
+  id          Int             @id @default(autoincrement())
   quantity    Int
   notes       String?
   status      OrderStatus
-  // Relaciones
-  order       Order @relation(fields: [orderId], references: [id])
+  createdAt       DateTime        @default(now())
+
+  // Relaciones modificadas
+  order       Order           @relation(fields: [orderId], references: [id])
   orderId     Int
-  dish        Dish @relation(fields: [dishId], references: [id])
+  dish        Dish            @relation(fields: [dishId], references: [id])
   dishId      Int
+  customer    OrderCustomer?  @relation(fields: [orderCustomerOrderId, orderCustomerCustomerId], references: [orderId, customerId])
+  orderCustomerOrderId        Int?
+  orderCustomerCustomerId     Int?
 }
 
 model Receipt {

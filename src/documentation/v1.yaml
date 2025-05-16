@@ -6,35 +6,6 @@ info:
 
 components:
   schemas:
-    WebSocketEvents:
-      type: object
-      description: |
-        El servidor web sockect corre en **ws://localhost:PORT** (en mi caso ws://localhost:8002)
-        Eventos emitidos a través de WebSocket:
-        
-        - **dish_created**: Emitido al crear un plato
-          - Data: Dish (el objeto completo del plato creado)
-        
-        - **dish_updated**: Emitido al actualizar un plato
-          - Data: Dish (el objeto completo del plato actualizado)
-        
-        - **dish_deleted**: Emitido al eliminar un plato
-          - Data: { id: number } (solo el ID del plato eliminado)
-        
-        - **table_created**: Emitido al crear una mesa
-          - Data: Table (el objeto completo de la mesa creada)
-        
-        - **table_occupied**: Emitido al escanear QR de mesa
-          - Data: Table (el objeto completo de la mesa ocupada)
-        
-        - **table_deleted**: Emitido al eliminar una mesa
-          - Data: { id: number } (solo el ID de la mesa eliminada)
-
-        - **order_item_created**: Emitido al crear un ítem de orden
-          - Data: OrderItem (el objeto completo del OrderItemDetail creado )
-
-        - **order_item_updated**: Emitido al actualizar un ítem de orden
-          - Data: OrderItem (el objeto completo del OrderItemDetail actualizado)
     OrderStatus:
       type: string
       enum:
@@ -567,8 +538,8 @@ paths:
         Crea un nuevo plato.
         
         **Emite evento WebSocket:**
-        - Nombre: **dish_created**
-        - Datos: El objeto **Dish** completo recién creado
+        - Nombre: dish_created
+        - Datos: El objeto Dish completo recién creado
       tags:
         - Dish
       requestBody:
@@ -649,8 +620,8 @@ paths:
         - Or `{ "isAvailable": false, "description": "New description" }` to update multiple fields
 
         **Emite evento WebSocket:**
-        - Nombre: **dish_updated**
-        - Datos: El objeto **Dish** completo actualizado
+        - Nombre: dish_updated
+        - Datos: El objeto Dish completo actualizado
       tags:
         - Dish
       parameters:
@@ -718,10 +689,10 @@ paths:
       summary: Delete a dish by ID
       description: |
         Permanently delete a dish from the system.
-
+    
         **Emite evento WebSocket:**
-        - Nombre: **dish_deleted**
-        - Datos: El objeto con atributo **{ id: number }** (ID del plato eliminado)
+            - Nombre: dish_deleted
+            - Datos: { id: number } (ID del plato eliminado)
       tags:
         - Dish
       parameters:
@@ -796,10 +767,6 @@ paths:
         1. **Basic**: Only table metadata (default).
         2. **Detailed**: Includes customers, orders, and assigned dishes.
         3. **Simple**: Flattened structure optimized for client displays. **(RECOMENDADO - CESAR)**
-
-        **WebSocket Events:**
-        - **order_item_created**: Se emiten cuando se hace un pedido de alguna mesa. El objeto `itemData` (OrderItemDetail) es enviado en el payload. Debe agregarse a la lista (si el id_table y id_order son iguales) para actualizar la interfaz en tiempo real.
-        - **order_item_updated**: Se emite cuando se hace una actualizacion sobre un OrderItem. El objeto `itemData` (OrderItemDetail) actualizado es enviado en el payload. Debe reemplazar el OrderItem (si el id_table y id_order son iguales) en la lista actual para reflejar los cambios en tiempo real.
       tags:
         - Table
       parameters:
@@ -810,6 +777,13 @@ paths:
           schema:
             type: integer
             example: 5
+        - name: includeDetails
+          in: query
+          description: Include full order details (customers, orders, dishes)
+          required: false
+          schema:
+            type: boolean
+            example: true
         - name: simple
           in: query
           description: Return simplified flattened structure
@@ -838,8 +812,8 @@ paths:
         Find a table by QR code, update its status to **OCCUPIED**, and create a temporary customer.
         
         **WebSocket Event:**
-        - Event: **table_updated**
-        - Data: Updated **Table** object.
+        - Event: `table_occupied`
+        - Data: Updated `Table` object.
       tags:
         - Table
       requestBody:
@@ -892,8 +866,8 @@ paths:
         Create a new table and generate its QR code automatically.
 
         **Emite evento WebSocket:**
-        - Nombre: **table_created**
-        - Datos: El objeto **Table** completo recién creado
+        - Nombre: table_created
+        - Datos: El objeto Table completo recién creado
       tags:
         - Table
       requestBody:
@@ -953,8 +927,8 @@ paths:
         Mark a table as deleted (soft delete) and change its status to MAINTENANCE.
 
         **Emite evento WebSocket:**
-        - Nombre: **table_deleted**
-        - Datos: Objeto solo con **{ id: number }** (ID de la mesa eliminada)
+        - Nombre: table_deleted
+        - Datos: { id: number } (ID de la mesa eliminada)
       tags:
         - Table
       parameters:
@@ -989,10 +963,7 @@ paths:
       summary: Update table properties
       description: |
         Update a table's capacity and/or status.  
-
-        **Emits WebSocket Event:** 
-        - Nombre: **table_updated** with the updated table object.
-        - Datos: Objeto **Table** con datos actualizados
+        **Emits WebSocket Event:** `table_updated` with the updated table object.
       tags:
         - Table
       parameters:
@@ -1066,11 +1037,7 @@ paths:
       summary: Create a new order with order items
       description: |
         Creates an order for a customer at a specific table, including multiple dishes.
-        Emits WebSocket events for each created order item (emite eventos por cada plato pedido OrderItem).
-
-        **Emite evento WebSocket:**
-        - Nombre: **order_item_created**
-        - Datos: Objeto itemData (Es el objeto igual al OrderItemDetail)
+        Emits WebSocket events for each created order item.
       tags:
         - Order
       requestBody:
@@ -1196,10 +1163,7 @@ paths:
       summary: Update an order item's status
       description: |
         Updates the status of a specific order item and emits a WebSocket event.
-
-        **Emite evento WebSocket:**
-        - Nombre: **order_item_updated**
-        - Datos: Objeto itemData (Es el objeto igual al OrderItemDetail)
+        **WebSocket Event:** `order_item_updated` with full item details.
       tags:
         - Order
       parameters:
@@ -1266,10 +1230,6 @@ paths:
         2. Creation time (oldest first)
         
         Includes empty groups for all statuses even when no items exist.
-
-        **WebSocket Events:**
-        - **order_item_created**: Se emiten cuando se hace un pedido de alguna mesa. El objeto `itemData` (OrderItemDetail) es enviado en el payload. Debe agregarse a la lista (si el id_table y id_order son iguales) para actualizar la interfaz en tiempo real.
-        - **order_item_updated**: Se emite cuando se hace una actualizacion sobre un OrderItem. El objeto `itemData` (OrderItemDetail) actualizado es enviado en el payload. Debe reemplazar el OrderItem (si el id_table y id_order son iguales) en la lista actual para reflejar los cambios en tiempo real.
       tags:
         - Order
       responses:

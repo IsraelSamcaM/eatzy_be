@@ -35,6 +35,7 @@ export const createTableWithQR = async (req: Request, res: Response) => {
                 qrCodeUrl: qrImageUrl,   
             },
         });
+
         const io = req.app.get('io');
         io.emit('table_created', table);
 
@@ -47,24 +48,39 @@ export const createTableWithQR = async (req: Request, res: Response) => {
 
 export const handleQRScan = async (req: Request, res: Response) => {
     try {
-        const { qrCodeUrl } = req.params;
+        const { qrCode, nameCustomer  } = req.body;
 
         const table = await prisma.table.findFirst({
-            where: { qrCodeUrl: qrCodeUrl },
+            where: { qrCode: qrCode },
         });
 
         if (!table) {
             return res.status(404).json({ success: false, message: "Table no found" });
         }
-        await prisma.table.update({
+
+        if (table.status==='MAINTENANCE' || table.status==='DELETED') {
+            return res.status(409).json({ success: false, message: "Table is maintenance or deleted" });
+        }
+
+        const updatedTable = await prisma.table.update({
             where: { id: table.id },
             data: { status: 'OCCUPIED' }
-        });
+        }); 
 
         const io = req.app.get('io');
-        io.emit('table_occupied', table);
+        io.emit('table_updated', table);
 
-        return res.status(200).json({success: true, message: "Table found and status updated", data: table });
+        const newCustomer = await prisma.temporaryCustomer.create({
+            data: {
+                name_customer: nameCustomer,
+                tableId: table.id
+            }, 
+            include: {
+                table: true,
+            }
+        })
+
+        return res.status(200).json({success: true, message: "Table found and status updated", data: {table: updatedTable, customer: newCustomer} });
     } catch (error) {
         console.error("Error handling QR scan:", error);
         return res.status(500).json({ 
@@ -107,34 +123,119 @@ export const getAllTables = async (req: Request, res: Response) => {
 export const getTableById = async(req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const { includeDetails } = req.query as {includeDetails?: string};
-        const table = await prisma.table.findUnique({
+        const { includeDetails, simple } = req.query as {includeDetails?: string, simple?: string};
+
+        if (includeDetails !== 'true' && simple !== 'true') {
+            const table = await prisma.table.findUnique({
+                where: { 
+                    id: Number(id),
+                    delete: false 
+                }
+            });
+
+            if(!table) {
+                return res.status(404).json({ success: false, message: "Table not found" });
+            }
+            return res.status(200).json({ 
+                success: true,
+                message: "Table without details", 
+                data: table 
+            });
+        }
+
+        const tableWithDetails = await prisma.table.findUnique({
             where: { 
                 id: Number(id),
                 delete: false 
             },
             include: {
-                orders: includeDetails === 'true' ? {
-                include: {
-                items: {
+                customers: {
                     include: {
-                        dish: true  
+                        orders: {
+                            include: {
+                                assignedItems: {
+                                    include: {
+                                        dish: true
+                                    }
+                                },
+                                order: {
+                                    select: {
+                                        id: true,
+                                        status: true,
+                                        tableId: true
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-                },
-                orderBy: [ { status: 'asc'},
-                { createdAt: 'desc' }]
-            } : false
             }
         });
 
-        if(!table){
+        if(!tableWithDetails) {
             return res.status(404).json({ success: false, message: "Table not found" });
         }
-        return res.status(200).json({ success: true, data: table});
+
+        if (simple === 'true') {
+            const simpleData = tableWithDetails.customers.flatMap(customer =>
+                customer.orders.flatMap(orderCustomer =>
+                    orderCustomer.assignedItems.map(item => ({
+                        id_table: orderCustomer.order.tableId,
+                        id_customer: customer.id,
+                        id_order: orderCustomer.order.id,
+                        id_order_item: item.id,
+                        id_dish: item.dish.id,
+                        name_customer: customer.name_customer,
+                        quantity: item.quantity,
+                        status: item.status,
+                        name_dish: item.dish.name,
+                        type: item.dish.type,
+                        description: item.dish.description,
+                        price: item.dish.price,
+                        isAvailable: item.dish.isAvailable,
+                        imageUrl: item.dish.imageUrl,
+                        prepTime: item.dish.prepTime
+                    }))
+                )
+            );
+
+            return res.status(200).json({ success: true, message: "Table data in simple format",  data: simpleData });
+        }
+
+        const customersWithItems = tableWithDetails.customers.map(customer => {
+            const orderItems = customer.orders.flatMap(orderCustomer => 
+                orderCustomer.assignedItems.map(item => ({
+                    id: item.id,
+                    quantity: item.quantity,
+                    status: item.status,
+                    notes: item.notes,
+                    dish: item.dish,
+                    orderId: orderCustomer.order.id,
+                    orderStatus: orderCustomer.order.status
+                }))
+            );
+
+            return {
+                id: customer.id,
+                name: customer.name_customer,
+                orderItems: orderItems
+            };
+        });
+
+        const detailedResponse = {
+            id: tableWithDetails.id,
+            number: tableWithDetails.number,
+            capacity: tableWithDetails.capacity,
+            status: tableWithDetails.status,
+            qrCode: tableWithDetails.qrCode,
+            qrCodeUrl: tableWithDetails.qrCodeUrl,
+            customers: customersWithItems
+        };
+
+        return res.status(200).json({ success: true, message: "Table with all details",  data: detailedResponse  });
     } catch (error) {
-        console.error("Error fetching tables:", error);
-        return res.status(500).json({ success: false, message: "Error retrieving table" });
+        console.error("Error fetching table details:", error);
+        return res.status(500).json({ success: false, message: "Error retrieving table details" });
     }
 }
 
@@ -169,7 +270,7 @@ export const deleteTable = async (req: Request, res: Response) => {
             where: { id: Number(id) },
             data: { 
                 delete: true,
-                status: 'MAINTENANCE'
+                status: 'DELETED'
             }
         });
 
@@ -178,18 +279,61 @@ export const deleteTable = async (req: Request, res: Response) => {
         const io = req.app.get('io');
         io.emit('table_deleted', { id:  deletedTable.id});
 
-        return res.status(200).json({ success: true, message: "Mesa eliminada correctamente", data: deletedTable });
+        return res.status(200).json({ success: true, message: "Table delete succesfully", data: deletedTable });
 
     } catch (error) {
-        console.error("Error al eliminar mesa:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Error interno al eliminar la mesa"
-        });
+        console.error("Error deleting table:", error);
+        return res.status(500).json({ success: false, message: "Error deleting table" });
     }
 };
 
+export const patchTableById = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { capacity, status } = req.body;
 
+        const upperStatus = status?.toUpperCase();
+        if (!Object.values(TableStatus).includes(upperStatus as TableStatus)) {
+            return res.status(400).json({success: false, message: `Invalid type. Must be one of: ${Object.values(TableStatus).join(", ")}`});
+        }
+
+        if (capacity === undefined && status === undefined) {
+            return res.status(400).json({ success: false, message: "At least one field must be provided (capacity or status)" });
+        }
+
+        if (capacity !== undefined && (isNaN(capacity) || capacity <= 0)) {
+            return res.status(400).json({ success: false, message: "Capacity must be a positive number" });
+        }
+
+        const existingTable = await prisma.table.findUnique({ where: { id: Number(id) }});
+
+        if (!existingTable) {
+            return res.status(404).json({ success: false, message: "Table not found, are you sure you are entering the id and not the table number?"});
+        }
+
+        const updateData: {
+            capacity?: number;
+            status?: TableStatus;
+        } = {};
+
+        if (capacity !== undefined) updateData.capacity = capacity;
+        if (status !== undefined) updateData.status = status as TableStatus;
+
+        const updatedTable = await prisma.table.update({
+            where: { id: parseInt(id) },
+            data: updateData
+        });
+
+        const io = req.app.get('io');
+        io.emit('table_updated', updatedTable);
+
+        return res.status(200).json({ success: true, message: "Table updated successfully", data: updatedTable});
+
+    } catch (error) {
+        console.error("Error updating table:", error);
+        return res.status(500).json({ success: false, message: "Error updating table" });
+    }
+};
 
 
 
