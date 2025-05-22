@@ -189,12 +189,6 @@ export const getAllToPanel = async (req: Request, res: Response) => {
     try {
         type PanelStatus = 'PENDING' | 'IN_PREPARATION' | 'READY' | 'CANCELLED';
         const requiredStatuses: PanelStatus[] = ['PENDING', 'IN_PREPARATION', 'READY', 'CANCELLED'];
-        const statusOrder: Record<PanelStatus, number> = {
-            PENDING: 0,
-            IN_PREPARATION: 1,
-            READY: 2,
-            CANCELLED: 3
-        };
 
         const orderItems = await prisma.orderItem.findMany({
             where: {
@@ -221,66 +215,28 @@ export const getAllToPanel = async (req: Request, res: Response) => {
             }
         });
 
-        const result = orderItems.reduce((acc, item) => {
-            const existingOrderGroup = acc.find(group => 
-                group.id === item.orderId && 
-                group.status === item.status && 
-                group.mesa_number === item.customer?.order.table.number
-            );
-
-            const itemData = {
-                id_table: item.customer?.order.table.id || 0,
-                id_customer: item.customer?.customer.id || 0,
-                id_order: item.orderId,
-                id_order_item: item.id,
-                id_dish: item.dish.id,
-                name_customer: item.customer?.customer.name_customer || 'Cliente desconocido',
-                quantity: item.quantity,
-                status: item.status,
-                name_dish: item.dish.name,
-                type: item.dish.type,
-                description: item.dish.description || '',
-                price: item.dish.price,
-                isAvailable: item.dish.isAvailable,
-                imageUrl: item.dish.imageUrl || '',
-                prepTime: item.dish.prepTime
-            };
-
-            if (existingOrderGroup) {
-                existingOrderGroup.itemOrdes.push(itemData);
-            } else {
-                acc.push({
-                    id: item.orderId,
-                    status: item.status as PanelStatus,
-                    mesa_number: item.customer?.order.table.number || 0,
-                    itemOrdes: [itemData]
-                });
-            }
-
-            return acc;
-        }, [] as Array<{
-            id: number;
-            status: PanelStatus;
-            mesa_number: number;
-            itemOrdes: Array<any>;
-        }>);
-
-        requiredStatuses.forEach(status => {
-            if (!result.some(group => group.status === status)) {
-                result.push({
-                    id: 0,
-                    status,
-                    mesa_number: 0,
-                    itemOrdes: []
-                });
-            }
-        });
-
-        result.sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
+        const flatItems = orderItems.map(item => ({
+            id_table: item.customer?.order.table.id || 0,
+            number: item.customer?.order.table.number || 0, 
+            id_customer: item.customer?.customer.id || 0,
+            id_order: item.orderId,
+            id_order_item: item.id,
+            id_dish: item.dish.id,
+            name_customer: item.customer?.customer.name_customer || 'Cliente desconocido',
+            quantity: item.quantity,
+            status: item.status,
+            name_dish: item.dish.name,
+            type: item.dish.type,
+            description: item.dish.description || '',
+            price: item.dish.price,
+            isAvailable: item.dish.isAvailable,
+            imageUrl: item.dish.imageUrl || '',
+            prepTime: item.dish.prepTime
+        }));
 
         return res.status(200).json({
             success: true,
-            data: result
+            data: flatItems
         });
 
     } catch (error) {
@@ -292,4 +248,5 @@ export const getAllToPanel = async (req: Request, res: Response) => {
         });
     }
 };
+
 

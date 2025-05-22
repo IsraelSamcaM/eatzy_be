@@ -142,7 +142,7 @@ components:
         status:
           type: string
           enum: [PENDING, IN_PREPARATION, READY, CANCELLED]
-          example: "IN_PREPARATION"
+          example: "PENDING"
         mesa_number:
           type: integer
           description: Table number (0 for empty groups)
@@ -273,6 +273,9 @@ components:
         id_table:
           type: integer
           example: 5
+        number:
+          type: integer
+          example: 3
         id_customer:
           type: integer
           example: 12
@@ -1261,12 +1264,10 @@ paths:
     get:
       summary: Get all order items grouped by status for panel display
       description: |
-        Retrieves order items grouped by status and table number, sorted by:
+        Retrieves order items with status and table number:
         1. Status priority (PENDING > IN_PREPARATION > READY > CANCELLED)
         2. Creation time (oldest first)
         
-        Includes empty groups for all statuses even when no items exist.
-
         **WebSocket Events:**
         - **order_item_created**: Se emiten cuando se hace un pedido de alguna mesa. El objeto `itemData` (OrderItemDetail) es enviado en el payload. Debe agregarse a la lista (si el id_table y id_order son iguales) para actualizar la interfaz en tiempo real.
         - **order_item_updated**: Se emite cuando se hace una actualizacion sobre un OrderItem. El objeto `itemData` (OrderItemDetail) actualizado es enviado en el payload. Debe reemplazar el OrderItem (si el id_table y id_order son iguales) en la lista actual para reflejar los cambios en tiempo real.
@@ -1286,7 +1287,7 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/PanelGroup'
+                      $ref: '#/components/schemas/PanelItem'
         '500':
           description: Server error
           content:
