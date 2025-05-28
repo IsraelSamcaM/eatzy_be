@@ -292,11 +292,6 @@ export const patchTableById = async (req: Request, res: Response) => {
         const { id } = req.params;
         const { capacity, status } = req.body;
 
-        const upperStatus = status?.toUpperCase();
-        if (!Object.values(TableStatus).includes(upperStatus as TableStatus)) {
-            return res.status(400).json({success: false, message: `Invalid type. Must be one of: ${Object.values(TableStatus).join(", ")}`});
-        }
-
         if (capacity === undefined && status === undefined) {
             return res.status(400).json({ success: false, message: "At least one field must be provided (capacity or status)" });
         }
@@ -305,10 +300,23 @@ export const patchTableById = async (req: Request, res: Response) => {
             return res.status(400).json({ success: false, message: "Capacity must be a positive number" });
         }
 
+        if (status !== undefined) {
+            const upperStatus = status.toUpperCase();
+            if (!Object.values(TableStatus).includes(upperStatus as TableStatus)) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: `Invalid status. Must be one of: ${Object.values(TableStatus).join(", ")}` 
+                });
+            }
+        }
+
         const existingTable = await prisma.table.findUnique({ where: { id: Number(id) }});
 
         if (!existingTable) {
-            return res.status(404).json({ success: false, message: "Table not found, are you sure you are entering the id and not the table number?"});
+            return res.status(404).json({ 
+                success: false, 
+                message: "Table not found, are you sure you are entering the id and not the table number?" 
+            });
         }
 
         const updateData: {
@@ -317,7 +325,7 @@ export const patchTableById = async (req: Request, res: Response) => {
         } = {};
 
         if (capacity !== undefined) updateData.capacity = capacity;
-        if (status !== undefined) updateData.status = status as TableStatus;
+        if (status !== undefined) updateData.status = status.toUpperCase() as TableStatus;
 
         const updatedTable = await prisma.table.update({
             where: { id: parseInt(id) },
@@ -327,13 +335,21 @@ export const patchTableById = async (req: Request, res: Response) => {
         const io = req.app.get('io');
         io.emit('table_updated', updatedTable);
 
-        return res.status(200).json({ success: true, message: "Table updated successfully", data: updatedTable});
+        return res.status(200).json({ 
+            success: true, 
+            message: "Table updated successfully", 
+            data: updatedTable 
+        });
 
     } catch (error) {
         console.error("Error updating table:", error);
-        return res.status(500).json({ success: false, message: "Error updating table" });
+        return res.status(500).json({ 
+            success: false, 
+            message: "Error updating table" 
+        });
     }
 };
+
 
 
 
