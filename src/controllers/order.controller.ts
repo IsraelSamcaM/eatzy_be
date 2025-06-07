@@ -7,10 +7,7 @@ export const createOrder = async (req: Request, res: Response) => {
         const { id_table, id_customer, dishes } = req.body;
 
         if (!id_table || !id_customer || !dishes || !Array.isArray(dishes)) {
-            return res.status(400).json({ 
-                success: false, 
-                message: "Missing required fields: id_table, id_customer, dishes" 
-            });
+            return res.status(400).json({ success: false, message: "Missing required fields: id_table, id_customer, dishes" });
         }
 
         const table = await prisma.table.findUnique({
@@ -39,22 +36,54 @@ export const createOrder = async (req: Request, res: Response) => {
             return res.status(404).json({ success: false, message: `Some dishes not found: ${missingDishes.join(', ')}` });
         }
 
-        const order = await prisma.order.create({
-            data: {
-                code: `ORD-${Date.now()}`,
-                status: 'PENDING',
-                total: 0, 
+        const activeOrder = await prisma.order.findFirst({
+            where: {
                 tableId: Number(id_table),
-                customers: {
-                    create: {
-                        customerId: Number(id_customer)
-                    }
-                }
+                status: 'PENDING'
             },
             include: {
-                customers: true
+                customers: {
+                    where: {
+                        customerId: Number(id_customer)
+                    }
+                },
+                items: true
             }
         });
+
+        let order;
+        let isNewOrder = false;
+
+        if (activeOrder) {
+            order = activeOrder;
+            if (order.customers.length === 0) {
+                await prisma.orderCustomer.create({
+                    data: {
+                        orderId: order.id,
+                        customerId: Number(id_customer)
+                    }
+                });
+            }
+        } else {
+            order = await prisma.order.create({
+                data: {
+                    code: `ORD-${Date.now()}`,
+                    status: 'PENDING',
+                    total: 0, 
+                    tableId: Number(id_table),
+                    customers: {
+                        create: {
+                            customerId: Number(id_customer)
+                        }
+                    }
+                },
+                include: {
+                    customers: true,
+                    items: true
+                }
+            });
+            isNewOrder = true;
+        }
 
         const io = req.app.get('io');
         const createdItems = [];
@@ -63,24 +92,48 @@ export const createOrder = async (req: Request, res: Response) => {
             const dish = existingDishes.find(d => d.id === dishItem.id);
             if (!dish) continue;
 
-            const orderItem = await prisma.orderItem.create({
-                data: {
-                    quantity: dishItem.quantity,
-                    status: 'PENDING',
-                    orderId: order.id,
-                    dishId: dish.id,
-                    orderCustomerOrderId: order.id,
-                    orderCustomerCustomerId: customer.id
-                },
-                include: {
-                    dish: true,
-                    customer: {
-                        include: {
-                            customer: true
+            const existingItem = order.items.find(
+                item => item.dishId === dish.id && 
+                item.orderCustomerCustomerId === Number(id_customer)
+            );
+
+            let orderItem;
+            
+            if (existingItem) {
+                orderItem = await prisma.orderItem.update({
+                    where: { id: existingItem.id },
+                    data: {
+                        quantity: existingItem.quantity + dishItem.quantity
+                    },
+                    include: {
+                        dish: true,
+                        customer: {
+                            include: {
+                                customer: true
+                            }
                         }
                     }
-                }
-            });
+                });
+            } else {
+                orderItem = await prisma.orderItem.create({
+                    data: {
+                        quantity: dishItem.quantity,
+                        status: 'PENDING',
+                        orderId: order.id,
+                        dishId: dish.id,
+                        orderCustomerOrderId: order.id,
+                        orderCustomerCustomerId: customer.id
+                    },
+                    include: {
+                        dish: true,
+                        customer: {
+                            include: {
+                                customer: true
+                            }
+                        }
+                    }
+                });
+            }
 
             const itemData = {
                 id_table: Number(id_table),
@@ -100,11 +153,16 @@ export const createOrder = async (req: Request, res: Response) => {
                 prepTime: dish.prepTime
             };
 
-            io.emit('order_item_created', itemData);
+            io.emit(isNewOrder ? 'order_item_created' : 'order_item_updated', itemData);
             createdItems.push(itemData);
         }
 
-        const total = createdItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const allItems = await prisma.orderItem.findMany({
+            where: { orderId: order.id },
+            include: { dish: true }
+        });
+        
+        const total = allItems.reduce((sum, item) => sum + (item.dish.price * item.quantity), 0);
         await prisma.order.update({
             where: { id: order.id },
             data: { total }
@@ -112,7 +170,9 @@ export const createOrder = async (req: Request, res: Response) => {
 
         return res.status(201).json({ 
             success: true, 
-            message: "Order and Order Items created successfully",
+            message: isNewOrder ? 
+                "Order and Order Items created successfully" : 
+                "Order Items added to existing order",
             data: {
                 id_order: order.id,
                 items: createdItems
@@ -137,7 +197,7 @@ export const patchItemOrder = async (req: Request, res: Response) => {
         
         const updatedItem = await prisma.orderItem.update({
             where: { id: Number(id) },
-            data: { status },
+            data: { status },    
             include: {
                 dish: true,
                 customer: {
@@ -194,6 +254,11 @@ export const getAllToPanel = async (req: Request, res: Response) => {
             where: {
                 status: {
                     in: requiredStatuses
+                },
+                order:{
+                    status:{
+                        not: "PAID"
+                    }
                 }
             },
             include: {

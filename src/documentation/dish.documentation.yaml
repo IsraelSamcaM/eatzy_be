@@ -35,6 +35,9 @@ components:
 
         - **order_item_updated**: Emitido al actualizar un ítem de orden
           - Data: OrderItem (el objeto completo del OrderItemDetail actualizado)
+
+        - **order_item_deleted**: Emitido al pagar la cuenta de una mesa
+          - Data: { id: number } (solo el id_order_item del item de la order para quitarlo del panel)
     OrderStatus:
       type: string
       enum:
@@ -1064,6 +1067,156 @@ paths:
           description: Table not found (invalid ID)
         '500':
           description: Server error
+
+  /table/check/{id}:
+    get:
+      summary: Get ready items from a table's pending order
+      description: |
+        Recupera todos los items listos(READY) de la orden pendiente(PENDING) y actualiza la orden si es nedesario  
+        Usar para la HU 14,15 para ver el detalle de la mesa
+
+        **Flujo:**
+        1. Busca la mesa con órdenes PENDING o READY
+        2. Filtra solo items con status READY
+        3. Si la orden está PENDING, la actualiza a READY
+        4. Si la mesa no tenía notificación, la activa y emite evento
+        
+        **WebSocket Events:**
+        - **table_updated**: Se emite cuando se activa la notificación de la mesa. Contiene el objeto Table actualizado.
+      tags:
+        - Table
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: ID de la mesa a verificar
+      responses:
+        '200':
+          description: Successfully retrieved ready items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Items table 5"
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PanelItem'
+        '404':
+          description: Table not found or deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Mesa no encontrada o eliminada"
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Error interno del servidor"
+                  error:
+                    type: string
+                    example: "PrismaClientKnownRequestError: ..."
+                    
+  /table/pay/{id}:
+    put:
+      summary: Process payment for a table's order
+      description: |
+        Marca la orden de READY a PAID (solo de la orden y no de los items order, por que no es necesario)        
+        Usar en HU15
+        
+        **Flujo:**
+        1. Busca la orden READY de la mesa
+        2. Emite eventos de eliminación para cada item
+        3. Actualiza el estado de la orden a PAID
+        4. Libera la mesa (status: AVAILABLE)
+        5. Desactiva notificaciones (isNotification: false)
+        
+        **WebSocket Events:**
+        - **order_item_deleted**: Se emite por cada item de la orden (con el ID del item) esto para poder vaciar el panel cuando se paga la orden de la mesa
+        - **table_updated**: Se emite con los nuevos datos de la mesa 
+      tags:
+        - Table
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: ID de la mesa a pagar
+      responses:
+        '200':
+          description: Payment processed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Pago procesado correctamente, datos actualizados"
+                  data:
+                    type: object
+                    properties:
+                      updatedOrder:
+                        type: object
+                      updatedTable:
+                        type: object
+        '404':
+          description: No READY order found for table
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "No hay orden READY para esta mesa"
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Error al procesar el pago"
+                  error:
+                    type: string
+                    example: "PrismaClientKnownRequestError: ..."
+
   /order/create:
     post:
       summary: Create a new order with order items
@@ -1304,3 +1457,78 @@ paths:
                   error:
                     type: string
                     example: "PrismaClientKnownRequestError: ..."
+  /restaurant/email:
+    post:
+      tags:
+        - Login
+      summary: Verify if an email exists in the system
+      description: Check if an email is registered and valid for authentication
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: body
+          name: body
+          description: Email to verify
+          required: true
+          schema:
+            type: object
+            required:
+              - email
+            properties:
+              email:
+                type: string
+                format: email
+                example: user@example.com
+      responses:
+        '200':
+          description: Email is valid and registered
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: true
+              message:
+                type: string
+                example: "Your email provided is valid"
+              valid:
+                type: boolean
+                example: true
+        '400':
+          description: Invalid email format
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              message:
+                type: string
+                example: "Please provide a valid email address"
+        '422':
+          description: Email not found in system
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              message:
+                type: string
+                example: "Your email provided is invalid"
+              valid:
+                type: boolean
+                example: false
+        '500':
+          description: Internal server error
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              message:
+                type: string
+                example: "Error verifying email"

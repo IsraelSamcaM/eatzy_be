@@ -68,7 +68,7 @@ export const handleQRScan = async (req: Request, res: Response) => {
         }); 
 
         const io = req.app.get('io');
-        io.emit('table_updated', table);
+        io.emit('table_updated', updatedTable);
 
         const newCustomer = await prisma.temporaryCustomer.create({
             data: {
@@ -152,6 +152,13 @@ export const getTableById = async(req: Request, res: Response) => {
                 customers: {
                     include: {
                         orders: {
+                            where:{
+                                order: {
+                                    status: {
+                                        in: ["PENDING","READY"]
+                                    }
+                                }
+                            },
                             include: {
                                 assignedItems: {
                                     include: {
@@ -163,12 +170,12 @@ export const getTableById = async(req: Request, res: Response) => {
                                         id: true,
                                         status: true,
                                         tableId: true
-                                    }
+                                    },
                                 }
                             }
                         }
                     }
-                }
+                },
             }
         });
 
@@ -350,6 +357,165 @@ export const patchTableById = async (req: Request, res: Response) => {
     }
 };
 
+export const checkTable = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+
+        const tableWithOrder = await prisma.table.findUnique({
+            where: { 
+                id: Number(id),
+                delete: false 
+            },
+            include: {
+                orders: {
+                    where: {
+                        status: {
+                            in: ['PENDING','READY']
+                        }
+                    },
+                    include: {
+                        items: {
+                            where: {
+                                status: 'READY'
+                            },
+                            include: {
+                                dish: true,
+                                customer: {
+                                    include: {
+                                        customer: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!tableWithOrder) {
+            return res.status(404).json({ 
+                success: false, 
+                message: "Mesa no encontrada o eliminada" 
+            });
+        }
+
+        if (tableWithOrder.orders.length === 0) {
+            return res.status(200).json({ 
+                success: true, 
+                message: "No hay orden PENDING para esta mesa",
+                data: [] 
+            });
+        }
+
+        const pendingOrder = tableWithOrder.orders[0];
+        if(pendingOrder.status==='PENDING'){
+            await prisma.order.update({
+                where:{id: pendingOrder.id},
+                data:{status: 'READY'}
+            })
+        }
+
+        const formattedItems = pendingOrder.items.map(item => ({
+            id_table: tableWithOrder.id,
+            number: tableWithOrder.number,
+            id_customer: item.customer?.customerId || null,
+            id_order: pendingOrder.id,
+            id_order_item: item.id,
+            id_dish: item.dish.id,
+            name_customer: item.customer?.customer.name_customer || 'Sin asignar',
+            quantity: item.quantity,
+            status: item.status,
+            name_dish: item.dish.name,
+            type: item.dish.type,
+            description: item.dish.description,
+            price: item.dish.price,
+            isAvailable: item.dish.isAvailable,
+            imageUrl: item.dish.imageUrl,
+            prepTime: item.dish.prepTime
+        }));
+
+        if(tableWithOrder.isNotification!==true){
+            const updatedTable = await prisma.table.update({
+                where: { id: tableWithOrder.id },
+                data: { isNotification: true }
+            })
+
+            const io = req.app.get('io');
+            io.emit('table_updated', updatedTable);
+        }
+        return res.status(200).json({
+            success: true,
+            message: `Items table ${id}`,
+            data: formattedItems
+        });
+
+    } catch (error) {
+        console.error("Error en checkTable:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Error interno del servidor",
+            error: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+}
+
+export const payCheck = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const io = req.app.get('io');
+
+        const order = await prisma.order.findFirst({
+            where: {
+                tableId: Number(id),
+                status: 'READY'
+            },
+            include: {
+                items: true,
+                table: true
+            }
+        });
+
+        if (!order) {
+            return res.status(404).json({success: false, message: "No hay orden READY para esta mesa" });
+        }
+
+        order.items.forEach(item => {
+            io.emit('order_item_deleted', item.id);
+        });
+
+        const updatedOrder = await prisma.order.update({
+            where: { id: order.id },
+            data: { status: 'PAID' }
+        });
+
+        const updatedTable = await prisma.table.update({
+            where: { id: Number(id) },
+            data: { 
+                status: 'AVAILABLE',
+                isNotification: false,
+            },
+        });
+
+        io.emit('table_updated', updatedTable);
+
+        return res.status(200).json({
+            success: true,
+            message: "Pago procesado correctamente, datos actualizados",
+            data: {
+                updatedOrder,
+                updatedTable
+            }
+        });
+
+    } catch (error) {
+        console.error("Error en payCheck:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Error al procesar el pago",
+            error: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+}
 
 
 

@@ -33,15 +33,11 @@ model User {
   id          Int      @id @default(autoincrement())
   name        String   @db.VarChar(150)
   email       String   @db.VarChar(250) @unique
-  password    String   @db.VarChar(150)
-  role        Role     @default(CUSTOMER)
   avatarUrl   String?
   createdAt   DateTime @default(now())
   // Relación con restaurante (solo para administradores)
   restaurant  Restaurant? @relation(fields: [restaurantId], references: [id])
   restaurantId Int?
-  // Eliminada la relación con Orders
-  // orders      Order[]  <- ESTA ES LA QUE DEBES ELIMINAR
 }
 
 model TemporaryCustomer {
@@ -73,6 +69,7 @@ model Table {
   status      TableStatus
   qrCode      String   
   qrCodeUrl   String?  
+  isNotification Boolean    @default(false)
   delete      Boolean   @default(false)
   // Relaciones
   restaurant  Restaurant @relation(fields: [restaurantId], references: [id])
