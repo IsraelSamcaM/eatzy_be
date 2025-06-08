@@ -137,6 +137,7 @@ export const createOrder = async (req: Request, res: Response) => {
 
             const itemData = {
                 id_table: Number(id_table),
+                number:  Number(table.number),
                 id_customer: customer.id,
                 id_order: order.id,
                 id_order_item: orderItem.id,
@@ -153,7 +154,7 @@ export const createOrder = async (req: Request, res: Response) => {
                 prepTime: dish.prepTime
             };
 
-            io.emit(isNewOrder ? 'order_item_created' : 'order_item_updated', itemData);
+            io.emit('order_item_created', itemData);
             createdItems.push(itemData);
         }
 
