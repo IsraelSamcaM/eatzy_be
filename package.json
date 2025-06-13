@@ -4,8 +4,7 @@
   "description": "Proyecto Base",
   "main": "src/index.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "ts-node src/index.ts",
+    "start": "node dist/server.js",
     "dev": "nodemon server.ts",
     "build": "tsc",
     "serve": "node server.js",
