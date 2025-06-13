@@ -888,7 +888,9 @@ paths:
         '404':
           description: Table not found.
         '409':
-          description: Conflict. Table is in MAINTENANCE/DELETED status.
+          description: La mesa no esta disponible actualmente.
+        '429':
+          description: La mesa ha alcanzado su capacidad máxima.
         '500':
           description: Server error.
   /table/create:

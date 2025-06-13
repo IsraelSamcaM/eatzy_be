@@ -52,35 +52,52 @@ export const handleQRScan = async (req: Request, res: Response) => {
 
         const table = await prisma.table.findFirst({
             where: { qrCode: qrCode },
+            include:{
+                customers:{
+                    where: {available:true}
+                }
+            }
         });
 
         if (!table) {
             return res.status(404).json({ success: false, message: "Table no found" });
         }
 
-        if (table.status==='MAINTENANCE' || table.status==='DELETED') {
-            return res.status(409).json({ success: false, message: "Table is maintenance or deleted" });
+        if (table.status==='MAINTENANCE' || table.status==='DELETED' || table.status==='RESERVED') {
+            return res.status(409).json({ success: false, message: "La mesa no esta disponible actualmente." });
         }
 
-        const updatedTable = await prisma.table.update({
-            where: { id: table.id },
-            data: { status: 'OCCUPIED' }
-        }); 
-
-        const io = req.app.get('io');
-        io.emit('table_updated', updatedTable);
+        if (table.customers.length >= table.capacity) {
+            return res.status(429).json({ 
+                success: false, 
+                message: "La mesa ha alcanzado su capacidad máxima" 
+            });
+        }
 
         const newCustomer = await prisma.temporaryCustomer.create({
             data: {
                 name_customer: nameCustomer,
                 tableId: table.id
-            }, 
+            },
             include: {
-                table: true,
+                table: true
             }
-        })
+        });
 
-        return res.status(200).json({success: true, message: "Table found and status updated", data: {table: updatedTable, customer: newCustomer} });
+        let updatedTable;
+        if (table.customers.length + 1 === table.capacity) {
+            updatedTable = await prisma.table.update({
+                where: { id: table.id },
+                data: { status: 'OCCUPIED' }
+            });
+        } else {
+            updatedTable = table;
+        }
+
+        const io = req.app.get('io');
+        io.emit('table_updated', updatedTable);
+
+        return res.status(200).json({success: true, message: "Cliente asignado a la mesa", data: {table: updatedTable, customer: newCustomer} });
     } catch (error) {
         console.error("Error handling QR scan:", error);
         return res.status(500).json({ 
@@ -495,6 +512,16 @@ export const payCheck = async (req: Request, res: Response) => {
                 isNotification: false,
             },
         });
+
+        await prisma.temporaryCustomer.updateMany({
+            where:{ 
+                tableId: updatedTable.id,
+                available: true
+            },
+            data: {
+                available: false
+            }
+        })
 
         io.emit('table_updated', updatedTable);
 

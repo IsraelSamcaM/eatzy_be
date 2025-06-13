@@ -45,6 +45,7 @@ model TemporaryCustomer {
   name_customer   String   
   table           Table           @relation(fields: [tableId], references: [id])
   tableId         Int
+  available       Boolean         @default(true)
   createdAt       DateTime        @default(now())
   // Relación modificada
   orders          OrderCustomer[] // Ahora a través de la tabla de unión
