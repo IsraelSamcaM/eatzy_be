@@ -887,10 +887,43 @@ paths:
                         $ref: '#/components/schemas/TemporaryCustomer'
         '404':
           description: Table not found.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Table not found"
         '409':
           description: La mesa no esta disponible actualmente.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "La mesa no esta disponible actualmente"
         '429':
           description: La mesa ha alcanzado su capacidad máxima.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "La mesa ha alcanzado su capacidad máxima"
         '500':
           description: Server error.
   /table/create:
