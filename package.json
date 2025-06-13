@@ -4,9 +4,9 @@
   "description": "Proyecto Base",
   "main": "src/index.ts",
   "scripts": {
-    "start": "node server.js",
+    "start": "node dist/server.js",
     "dev": "nodemon server.ts",
-    "build": "tsc",
+    "build": "tsc && cpx \"src/documentation/**/*.yaml\" dist/src/documentation",
     "serve": "node server.js",
     "postinstall": "prisma generate"
   },
@@ -24,6 +24,7 @@
     "@types/swagger-ui-express": "^4.1.8",
     "@types/yamljs": "^0.2.34",
     "@vercel/node": "^5.1.15",
+    "cpx": "^1.5.0",
     "prisma": "^5.5.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.2.2"
