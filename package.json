@@ -4,7 +4,7 @@
   "description": "Proyecto Base",
   "main": "src/index.ts",
   "scripts": {
-    "start": "node dist/server.js",
+    "start": "node server.js",
     "dev": "nodemon server.ts",
     "build": "tsc",
     "serve": "node server.js",
